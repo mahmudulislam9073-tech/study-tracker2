@@ -407,6 +407,41 @@ select{cursor:pointer;}
   .pt2{font-size:40px;}
   .prw{width:180px;height:180px;}
 }
+
+/* chapter checkbox + notes */
+.chc{display:block;}
+.chc.isdone{opacity:1;}
+.chc.isdone .ch-name{text-decoration:line-through;opacity:.6;}
+.chc.isdone .ch-desc{opacity:.45;}
+.ch-main{display:flex;align-items:flex-start;gap:12px;}
+.ch-body{flex:1;min-width:0;}
+.ch-head{display:flex;align-items:flex-start;gap:8px;}
+.ch-head .ch-name{white-space:normal;overflow:visible;line-height:1.35;}
+.ch-desc{white-space:pre-line;font-size:12.5px;line-height:1.6;color:rgba(255,255,255,.82);margin-top:8px;}
+.ch-foot{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.ch-foot .ch-tag{margin-top:0;}
+.ckw{position:relative;display:inline-flex;cursor:pointer;flex-shrink:0;margin-top:1px;}
+.ckw input{position:absolute;opacity:0;width:0;height:0;}
+.ckb{width:24px;height:24px;border-radius:7px;border:2px solid rgba(255,255,255,.6);background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;transition:.15s;}
+.ckw:hover .ckb{background:rgba(255,255,255,.22);}
+.ckw input:checked+.ckb{background:#fff;border-color:#fff;}
+.ckw input:checked+.ckb::after{content:'';width:6px;height:11px;border:solid var(--g2);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px);}
+.ckw input:focus-visible+.ckb{outline:2px solid #fff;outline-offset:2px;}
+.nbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;font:inherit;font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;}
+.nbtn:hover{background:rgba(255,255,255,.26);}
+.nbox{margin-top:14px;background:rgba(255,255,255,.96);border-radius:14px;padding:12px;color:var(--txt);}
+.nbox textarea{width:100%;min-height:110px;resize:vertical;border:1px solid var(--bor);border-radius:10px;padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.6;color:var(--txt);background:#fff;outline:none;box-sizing:border-box;}
+.nbox textarea:focus{border-color:var(--g1);box-shadow:0 0 0 3px rgba(45,122,90,.15);}
+.nimgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.nimg{position:relative;width:96px;height:96px;border-radius:10px;overflow:hidden;border:1px solid var(--bor);}
+.nimg img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
+.nimg button{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:14px;line-height:1;cursor:pointer;}
+.nact{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;}
+.nadd{background:var(--g1);color:#fff;font-size:12px;padding:7px 14px;border-radius:20px;cursor:pointer;}
+.nadd:hover{background:var(--g2);}
+.nhint{font-size:11px;color:var(--mut);}
+.lbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;}
+.lbox img{max-width:100%;max-height:100%;border-radius:8px;}
 </style>
 </head>
 <body>
@@ -754,50 +789,84 @@ function rDetailBanner(){
     +"<div class='db-pt'><div class='db-pf' style='width:"+pct+"%'></div></div>";
 }
 
+var openNotes={};
 function rChaps(){
   var el=document.getElementById('chList');
   var chs=cChaps(actCid);
   if(!chs.length){el.innerHTML="<div class='empty'><div class='eico'><svg><use href='#i-chap'/></svg></div>No chapters yet.</div>";return;}
   el.innerHTML=chs.map(function(ch,i){
-    var pct=Math.min(100,Math.round(((ch.minutes||0)/120)*100));
-    var h=Math.floor((ch.minutes||0)/60),m=(ch.minutes||0)%60;
-    return "<div class='chc' style='"+(ch.done?'opacity:.42;':'')+"'>"
-      +"<div>"
-        +"<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px'>"
-          +"<span class='ch-num'>"+(i+1)+"</span>"
-          +"<span class='ch-name'>"+esc(ch.name)+"</span>"
+    var tagN={class:'Class',exam:'Exam',project:'Project',revision:'Revision'}[ch.tag]||ch.tag;
+    var nImgs=(ch.imgs||[]).length, hasNote=!!(ch.notes&&ch.notes.trim())||nImgs>0;
+    var open=!!openNotes[ch.id];
+    return "<div class='chc"+(ch.done?" isdone":"")+"' id='chc"+ch.id+"'>"
+      +"<div class='ch-main'>"
+        +"<label class='ckw' title='Mark as done'><input type='checkbox' "+(ch.done?'checked':'')+" onchange='togDone("+ch.id+")'><span class='ckb'></span></label>"
+        +"<div class='ch-body'>"
+          +"<div class='ch-head'><span class='ch-num'>"+(i+1)+"</span><span class='ch-name'>"+esc(ch.name)+"</span></div>"
+          +(ch.desc?"<div class='ch-desc'>"+esc(ch.desc)+"</div>":"")
+          +"<div class='ch-foot'><span class='ch-tag'>"+esc(tagN)+"</span>"
+            +"<button class='nbtn' onclick='togNotes("+ch.id+")'>"+(open?'Hide notes':(hasNote?'Notes ●':'+ Notes'))+(nImgs?' · '+nImgs+' img':'')+"</button></div>"
         +"</div>"
-        +"<span class='ch-tag'>"+( {class:'Class',exam:'Exam',project:'Project',revision:'Revision'}[ch.tag]||ch.tag )+"</span>"
-        +"<div class='ch-pr'><div class='ch-prt'><div class='ch-prf' style='width:"+pct+"%'></div></div>"
-          +"<span class='ch-prp'>"+pct+"%</span></div>"
-      +"</div>"
-      +"<div class='ch-right'>"
-        +"<button class='tb' onclick='updMins("+ch.id+",-30)'><svg><use href='#i-min'/></svg></button>"
-        +"<span class='td'>"+(h>0?h+'h':m+'m')+"</span>"
-        +"<button class='tb' onclick='updMins("+ch.id+",30)'><svg><use href='#i-pls'/></svg></button>"
-        +"<button class='ib ck' onclick='togDone("+ch.id+")'><svg><use href='#i-chk'/></svg></button>"
         +"<button class='ib' onclick='delChap("+ch.id+")'><svg><use href='#i-trash'/></svg></button>"
       +"</div>"
+      +(open?noteBox(ch):'')
     +"</div>";
   }).join('');
+}
+function noteBox(ch){
+  var imgs=(ch.imgs||[]).map(function(src,k){
+    return "<div class='nimg'><img src='"+src+"' onclick='viewImg("+ch.id+","+k+")'><button onclick='delImg("+ch.id+","+k+")'>×</button></div>";
+  }).join('');
+  return "<div class='nbox'>"
+    +"<textarea id='nt"+ch.id+"' placeholder='Write notes for this chapter… (you can paste images here too)' oninput='saveNote("+ch.id+",this.value)' onpaste='pasteImg(event,"+ch.id+")'>"+esc(ch.notes||'')+"</textarea>"
+    +"<div class='nimgs'>"+imgs+"</div>"
+    +"<div class='nact'><label class='nadd'>📷 Add image<input type='file' accept='image/*' multiple hidden onchange='addImgs("+ch.id+",this.files);this.value=\"\"'></label>"
+    +"<span class='nhint'>Saved automatically</span></div>"
+  +"</div>";
+}
+function getCh(id){return chapters.find(function(c){return c.id===id;});}
+function togNotes(id){openNotes[id]=!openNotes[id];rChaps();}
+function saveNote(id,v){var ch=getCh(id);if(!ch)return;ch.notes=v;try{save();}catch(e){toast('Storage full');}}
+function addImgs(id,files){
+  Array.prototype.forEach.call(files,function(f){shrink(f,function(d){
+    var ch=getCh(id);if(!ch)return;ch.imgs=ch.imgs||[];ch.imgs.push(d);
+    try{save();}catch(e){ch.imgs.pop();toast('Storage full — image not saved');}
+    rChaps();
+  });});
+}
+function pasteImg(e,id){
+  var items=(e.clipboardData||{}).items||[];var found=false;
+  for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')===0){found=true;var f=items[i].getAsFile();if(f)addImgs(id,[f]);}}
+  if(found)e.preventDefault();
+}
+function shrink(file,cb){
+  var r=new FileReader();
+  r.onload=function(){var im=new Image();im.onload=function(){
+    var M=1100,w=im.width,h=im.height,s=Math.min(1,M/Math.max(w,h));
+    var c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    cb(c.toDataURL('image/jpeg',.72));
+  };im.src=r.result;};
+  r.readAsDataURL(file);
+}
+function delImg(id,k){var ch=getCh(id);if(!ch)return;ch.imgs.splice(k,1);save();rChaps();}
+function viewImg(id,k){
+  var ch=getCh(id);if(!ch)return;
+  var o=document.createElement('div');o.className='lbox';
+  o.innerHTML="<img src='"+ch.imgs[k]+"'>";o.onclick=function(){o.remove();};
+  document.body.appendChild(o);
 }
 
 function addChapter(){
   var name=document.getElementById('chni').value.trim(); if(!name||!actCid)return;
   var tag=document.getElementById('chtag').value;
-  chapters.push({id:Date.now(),name:name,tag:tag,courseId:actCid,minutes:0,done:false});
+  chapters.push({id:Date.now(),name:name,desc:'',tag:tag,courseId:actCid,done:false,notes:'',imgs:[]});
   save();rDetailBanner();rChaps();syncPom();
   document.getElementById('chni').value='';toast('Chapter added');
 }
 document.getElementById('chni').addEventListener('keydown',function(e){if(e.key==='Enter')addChapter();});
 function delChap(id){chapters=chapters.filter(function(c){return c.id!==id;});save();rDetailBanner();rChaps();syncPom();}
-function togDone(id){var ch=chapters.find(function(c){return c.id===id;});if(ch){ch.done=!ch.done;save();rDetailBanner();rChaps();}}
-function updMins(id,d){
-  var ch=chapters.find(function(c){return c.id===id;}); if(!ch)return;
-  ch.minutes=Math.max(0,(ch.minutes||0)+d);
-  if(d>0){var t=today();heatmap[t]=(heatmap[t]||0)+1;}
-  save();rDetailBanner();rChaps();
-}
+function togDone(id){var ch=getCh(id);if(ch){ch.done=!ch.done;save();rDetailBanner();rChaps();}}
 
 /* ── POMODORO ── */
 var CIRC=2*Math.PI*83;
@@ -979,6 +1048,33 @@ function rStats(){
 function today(){return new Date().toISOString().slice(0,10);}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ── PRELOADED COURSES (added once, never duplicated) ── */
+var SEED_COURSES = [{"code": "Chem-3101", "title": "Electrochemistry and Ionic Equilibria", "chapters": [{"n": "Basic Concepts of Electrochemistry", "d": "Characteristics of EMF, current, resistance, units (C.G.S. SI), Ohm's law, Faraday's law; specific, equivalent and molar conductance, classification of conductors, mechanism of electrolysis, Grothuss, Faraday, Clausius, Arrhenius theories, Wheatstone bridge principle: measurement of conductance, Cell constant."}, {"n": "Conductance of Electrolytes", "d": "Electrolytic conductance, limiting conductance, Kohlrausch's law & its application, ionic mobility, Transport numbers, their measurements, Influence of temperature on transport numbers, Abnormal Transport numbers. Influence of temperature on conductance, Walden product, Application of conductance measurements, Interionic attraction theory: Asymmetric and Electrophoretic effects and its limitation."}, {"n": "Electrochemical Cells", "d": "Electrodes, Types of electrodes (reversible), reference electrodes, glass electrode & its application, Standard electrode potentials (E°), Types of cells: chemical cells, reversible and irreversible cells, Principle of measuring E.M.F. of reversible cells, Potentiometer, standard cells, ΔG, ΔH in reversible cells; Concentration cells, their types & application, liquid junction potential, Henderson equation, Nernst equation, H₂-scale potential, application of potentiometry."}, {"n": "Limiting Law of Electrochemistry", "d": "Concept of activity and activity coefficient, Ionic atmosphere, Relaxation time, Ionic strength, Debye-Huckel limiting law for strong electrolytes, Measurement of activity coefficient, Effect of temperature & dielectric constant on activity coefficient, Dissociation constants and their measurement for polybasic acids & bases, conductometric, potentiometric and pH-metric methods."}, {"n": "Ionic Equilibria", "d": "Degree of ionization, factors affecting degree of ionization, Ostwald dilution law & limitation, Neutralization & Hydrolysis of salts, Ionic product of water, pH, pH-scale, Buffer solutions: classification, mechanism of buffer action & applications and Buffer capacity."}]}, {"code": "Chem-3102", "title": "Solid State Chemistry and Crystallography", "chapters": [{"n": "Structure of materials", "d": "Crystal structure of the elements: closed-packed metals-cubic and hexagonal packed structure; crystal structure of diamond, NaCl, BaTiO₃."}, {"n": "Description of crystal structures", "d": "Space lattice, Unit Cell, Lattice parameters, Bravais lattices and Crystal systems, Cubic crystal system & lattices, Density & packing fraction, Miller indices of crystallographic planes & directions, Interplanar distance, Ligancy and Critical radius ratio, photonic crystals, Liquid crystal phases and application in LCD."}, {"n": "Crystal defects", "d": "Point defects, Dislocations and Stacking faults, Semiconductors, Band theory, Materials for information storage, Concepts of holes, Effective mass, Drift mobility and Conductivity in conductors, Intrinsic and Extrinsic semiconductors; Fermi-Dirac distribution function and Fermi energy level in a conductor, insulator, Hall effect, P-N Junction, light emitting diode (LED)."}, {"n": "X-ray Diffraction", "d": "Diffraction geometry: Bragg's law, diffraction, Intensity: scattering from atoms, from the contents of a unit cell; Structure factor function; Application to polycrystal diffraction: Determination of crystal structure using X-ray diffraction techniques viz. Laue method, rotating crystal method (Bragg method) & powder method, Protein structure determination."}]}, {"code": "Chem-3103", "title": "Molecular Spectroscopy", "chapters": [{"n": "Introduction", "d": "Electromagnetic radiation: Definition, characteristics; Quantization of energy, Regions of spectra, Origin and classification of molecular spectra, Representation of spectra, Intensity of spectral transition."}, {"n": "Rotational Spectra", "d": "Rotational energies of diatomic molecules, interaction of rotating molecules with microwave radiation, rotational spectra of rigid diatomic molecules, effect of isotope substitution on rotational spectra, spectra of non-rigid rotors, intensities of rotational lines, bond length measurements."}, {"n": "Vibrational Spectra", "d": "Harmonic vibration of a chemical bond, its potential energy function, quantum mechanical solutions for harmonic oscillators, vibrational energy of diatomic molecules, vibrational spectra of diatomic molecules, anharmonicity of molecular vibrations, vibrational spectra of anharmonic molecules, force constant measurement."}, {"n": "Rotation Vibration Spectra", "d": "Rotation vibration spectra of diatomic molecules, simultaneous transitions and selection rules, rotation vibration spectra, PQR branches of lines, parallel bands of linear molecules, perpendicular bands of linear molecules, influence of nuclear spin."}]}, {"code": "Chem-3201", "title": "Organic Reaction Mechanism", "chapters": [{"n": "Organic Reaction Mechanisms", "d": "Nucleophilic Substitution Reactions: Classes of reaction mechanism, methods for determining reaction mechanisms, products, trapping and detection of intermediates, isotope tracing and kinetics. Nucleophilic substitution in aliphatic system, SN1 and SN2 reactions: kinetics, effect of solvent, effect of structure, effect of attacking reagents and leaving groups, stereochemistry, neighbouring group participation, steric effect, allylic rearrangement. Aromatic nucleophilic substitution reactions."}, {"n": "Elimination Reactions", "d": "Introduction, classification. Bimolecular eliminations: E1, E2 and E1cB mechanisms, orientation in elimination reactions, competition between elimination and substitution. Syn and anti elimination. Intramolecular (cis) elimination."}, {"n": "Addition Reactions", "d": "Addition to carbon-carbon multiple bonds, hydration of olefins, addition of hydrogen halides, Markovnikov's rule, peroxide initiated addition of hydrogen bromide, addition of halogens. Addition to carbon-heteroatom multiple bonds, mechanism and stereochemistry, nucleophilic additions."}, {"n": "Name Reactions", "d": "Reaction mechanism, application and limitations: Carbanions and enolization, ionization of C-H bonds and prototropy tautomerism, base and acid catalyzed halogenation of ketones, hydrolysis of haloforms (Reimer-Tiemann reaction), carbonyl addition reactions, addition of ester, alcohol, amines, substituted hydrazine. Hydride transfer reactions (Cannizzaro reaction), carbonyl condensation reactions and formation of cyanohydrins, aldol and Claisen condensation, Perkin reaction, Reformatsky reaction, Benzoin condensation, Mannich reaction and Knoevenagel reaction, addition reaction of organo-metallic compounds. Oppenauer oxidation, Baeyer Villiger oxidation, Wolff-Kishner reduction, Clemmensen reduction, Meerwein-Ponndorf-Verley reduction and reduction with metal hydrides."}]}, {"code": "Chem-3202", "title": "Stereochemistry and Chemistry of Biomolecules", "chapters": [{"n": "Stereochemistry", "d": "Geometrical Isomerism: General concept, definition, chirality, rigidity etc. Nature of geometrical isomerism, nomenclature of geometrical isomers, determination of the configuration of geometrical isomers. Restricted rotation about carbon-carbon double bonds and carbon-carbon single bonds in cyclic compounds."}, {"n": "Optical Isomerism", "d": "Enantiomers, diastereoisomers, racemic modifications and meso compounds with one, two and three asymmetric carbon atoms, the resolution of racemic modification, Walden inversion and asymmetric synthesis, absolute and relative configurations, D/L and R/S system."}, {"n": "Conformation and Conformational Analysis", "d": "Factors affecting stability of conformations, conformations of cyclohexane and other cyclic systems."}, {"n": "Biomolecules", "d": "Amino Acids, Lipids and Prostaglandins: Structure, classification and syntheses of amino acids, physical and chemical behavior of amino acids, essential amino acids; analysis of amino acids. Classification and biological functions of lipids. Nomenclature, structure, synthesis and biochemical functions of prostaglandins."}]}, {"code": "Chem-3203", "title": "Clinical and Pathological Chemistry", "chapters": [{"n": "Principles of Laboratory Analysis and Safety", "d": "Specimen collection, processing and preservation of clinical samples (blood, urine, stool, saliva, swabs, tissue etc.), hazards and safety measures in clinical laboratories, fundamentals of total quality management (TQM) of clinical laboratories."}, {"n": "General and Systemic Pathology", "d": "Cellular changes, inflammation and healing, neoplasms (tumours), cardiovascular system, urinary system."}, {"n": "Haematology", "d": "Introduction to blood cells, haemolytic anaemia, blood groups, laboratory methods."}, {"n": "Chemical and Clinical Pathology", "d": "Biochemical constituents of blood and urine, blood glucose and HbA1c, jaundice and liver function tests, examination of stool and urine."}]}, {"code": "Chem-3301", "title": "Coordination Chemistry", "chapters": [{"n": "Theory of Chemical Bonding", "d": "Critical studies of different bond types. Wave mechanical interpretation of covalent bonds, Pauling-Slater valence bond theory and molecular orbital theory. Comparison of the VBT and MOT methods."}, {"n": "Chemistry of Coordination Complexes", "d": "Werner's co-ordination theory and its electronic interpretations, stereoisomerisms of 4 and 6 co-ordinate complexes, inner complexes, EAN-rule, ligands, complex, coordination number, etc., polynuclear complexes, stabilization of valence states by complex formation, determination of configuration etc. Colour, magnetic properties and thermodynamic properties, spectrochemical series: elementary idea of valence bond theory (VBT), limitations of VBT, crystal field theory (CFT), limitations of CFT and ligand field theory (LFT). Analytical uses of co-ordination complexes."}, {"n": "Transition Elements", "d": "Electronic configuration and position in the periodic table, general properties, catalytic activities and uses."}, {"n": "Rare-earth Elements", "d": "Electronic configuration and position in the periodic table, extraction, separation, properties, catalytic activities and uses. Lanthanide contraction and its effects. Comparison of the properties of transition metals and rare earth elements."}]}, {"code": "Chem-3302", "title": "Organometallic Chemistry", "chapters": [{"n": "Organometallic Compounds", "d": "• (a) Definition, classification of organic ligands and organometallic compounds and their nomenclature, general characteristics, stability of organometallic compounds, general uses. General Principles, methods of formations, classification of ligands (theories of bonding and general preparative methods).\n• (b) Organometallic compounds of main group elements: synthetic methods, chemistry of a few selected metals, some typical reaction, and structural aspects.\n• (c) Metal-π-ethylene and metal-π-acetylene compounds with special reference to bonding therein.\n• (d) Cyclopentadienyl compounds: general methods of synthesis, reactions and structures of ferrocene, nature of bonding in cyclopentadienyl metal compounds with special reference to ferrocene, ionic cyclopentadienides.\n• (e) Applications in medicine, agriculture, industry and environmental aspects of organometallic compounds."}, {"n": "Macrocyclic compounds and Biomolecules", "d": "Introduction to macrocyclic ligands and their complexes: Porphyrin ring systems and metalloporphyrins. Structure and functions of myoglobin, hemoglobin, cytochromes, chlorophylls and Vitamin B₁₂."}]}, {"code": "Chem-3303", "title": "Electronic and Spin Resonance Spectroscopy", "chapters": [{"n": "Atomic Spectroscopy", "d": "Origin of atomic spectra, spin and orbital angular momenta: their coupling, notations of spectral terms, selection rules, fine structures of spectral lines, atomic spectra of elements, effect of magnetic field on atomic spectra, isotopic effect, methods of identification and determination of elements by emission spectroscopy."}, {"n": "Electronic Spectroscopy", "d": "Electronic spectra of diatomic molecules, vibrational structure of electronic bands, rotational structure of electronic bands, Franck-Condon Principle, dissociation in electronic transition, calculation of heat of dissociation, predissociation."}, {"n": "Molecular Spectroscopy", "d": "Origin of UV/Visible: Concept of chromophores, red shift and blue shift, hyperchromic effect and hypochromic effect. Selection rules for electronic transition, ligand spectra, charge transfer spectra and d-d spectra of complex compound."}, {"n": "IR Spectra", "d": "Production and presentation of IR Spectra. Classification and Calculation of normal vibration, Fundamental, overtone and combination bands. Parallel and Perpendicular bands. Factors that affect vibrational frequencies."}, {"n": "NMR Spectroscopy", "d": "Properties of nuclei in a magnetic field, Larmor precession, condition of magnetic resonance, basic principle, chemical shift, spin-spin coupling, relaxation processes, high resolution spectra, first and second order spectra, exchange processes, spin systems, prediction of NMR spectra of compounds when their structures are known. Construction and FT method of recording. Simplification of NMR by decoupling."}, {"n": "ESR spectroscopy", "d": "ESR spectra and their presentation, ESR active materials, theory of ESR spectroscopy, position of ESR lines, hyperfine structure of ESR lines, applications of ESR spectroscopy."}, {"n": "Raman spectroscopy", "d": "Elementary idea of Raman spectroscopy."}]}, {"code": "Chem-3304", "title": "Nuclear Chemistry", "chapters": [{"n": "Atomic Nucleus", "d": "Atomic nucleus and its composition, nuclear radius and density, nuclear mass and energy correlation, nuclear isomer, nuclear binding energy, nuclear potential barrier, nuclear force."}, {"n": "Radioactivity", "d": "Discovery of natural radioactivity, different types of radioactivity and their causes, n/p ratio, odd-even effect, magic number, half-life and decay constant of a radioactive isotope, radioactive series, group displacement law, radioactive equilibrium."}, {"n": "Interaction of radiation with matter", "d": "Interaction of α particles, range of α particles, Interaction of β particles, half thickness, Bremsstrahlung; Interaction of γ-ray with radiation, Photoelectric effect, Compton effect, pair production."}, {"n": "Detection and measurement of radiation", "d": "Wilson cloud chamber, bubble chamber, ionisation chamber, proportional counter, G. M. counter, Scintillation counter. Dead time of a counter and its corrections."}, {"n": "Nuclear Reaction", "d": "Definition, classification, compound nucleus formation, O-P process, effect of energy of projectile on nuclear reaction. Artificial radioactivity."}, {"n": "Uses of Radioisotopes", "d": "Uses of radioisotopes in Chemistry, radiocarbon dating."}]}, {"code": "Chem-3401", "title": "Inorganic Process in Industries", "chapters": [{"n": "Basic Concepts of Industrial Technology & Chemical Processes", "d": "Fundamental considerations in the development of a chemical industry, unit operations and unit processes. Future prospect of chemicals related industries in Bangladesh."}, {"n": "Fertilizers", "d": "Concept and classification of fertilizer and their importance as plant nutrients. Raw materials, manufacture, chemistry & technology of ammonia, urea, SSP and TSP. Fertilizer industry in Bangladesh."}, {"n": "Glass Industry", "d": "Definition, composition, classification, physical and chemical properties, raw materials, manufacture of glass, special glasses, glass industry in Bangladesh."}, {"n": "Cement Industry", "d": "Definition, composition, raw materials, types of cements, Manufacture of cement by different methods, setting and hardening of cement, test of cement, cement Industry in Bangladesh."}, {"n": "Ceramic", "d": "Definition, composition, classification and properties of ceramic. Basic raw materials, manufacturing process. Ceramic wares. Application of colors to the pottery. Ceramic Industry in Bangladesh."}, {"n": "Iron & Steel", "d": "Iron ores. Cast iron, wrought iron, and steel. Impact of impurities on iron ores. Construction and operation of blast furnace, fuel economy and uses of by-products. Different processes of steel production. Impact of impurities (S, P, Mn, etc.) on steel."}]}, {"code": "Chem-3402", "title": "Organic Process Industries", "chapters": [{"n": "Sugar Industry", "d": "Sources of sucrose, composition of sugarcane, manufacturing process of sugar, refining of raw sugar, by-products of sugar industry and their utilization. Sugar industry in Bangladesh."}, {"n": "Pulp and Paper Industry", "d": "Cellulose structure and natural sources of cellulose, manufacture of different types of pulp and paper. Additives, by-products. De-inking of waste paper. Pulp & paper industry in Bangladesh."}, {"n": "Fats and Oils", "d": "Sources, chemical composition, structure, classification and properties of oils and fats. Extraction, Refining, and hydrogenation of edible oils. Characterization of edible oil; saponification value, acid value and iodine value."}, {"n": "Soap and Detergent", "d": "Soap: Definition, manufacturing of different types of soap, recovery of glycerin from spent lye, cleansing action of soap. Detergent: Definition, Different types of detergents and their functions. Manufacture of detergent. Soap industry in Bangladesh."}, {"n": "Paint and Varnishes", "d": "Paints: Classification, constituents and manufacture of paints, requirements of a good paint, distempers, emulsion, and latex paints. Method of applying paints. Varnishes: Raw materials and manufacture. Paint industry in Bangladesh."}, {"n": "Leather Industry", "d": "Composition of leather. Tanning of leather; preparation of hides for tanning and different types of tanning. By-products of leather industry. Manufacture of leather and gelatin. Impact of leather industries on our environment. Leather industry in Bangladesh."}]}];
+function seedCourses(){
+  var changed=false, base=Date.now();
+  SEED_COURSES.forEach(function(s,i){
+    var cr=courses.find(function(c){return c.inst===s.code;});
+    if(!cr){
+      var cid=base+i*100;
+      cr={id:cid,name:s.title,inst:s.code};
+      courses.push(cr);
+      s.chapters.forEach(function(ch,j){
+        chapters.push({id:cid+j+1,name:ch.n,desc:ch.d,tag:'class',courseId:cid,done:false,notes:'',imgs:[]});
+      });
+      changed=true;
+    } else {
+      /* upgrade chapters saved by the earlier version: add full content */
+      s.chapters.forEach(function(sc){
+        chapters.forEach(function(ch){
+          if(ch.courseId===cr.id && ch.name===sc.n && !ch.desc){ch.desc=sc.d;changed=true;}
+        });
+      });
+    }
+  });
+  if(changed) save();
+}
+seedCourses();
 
 rCourses();syncPom();updPD();updRing();rPomSt();rCal();
 </script>
